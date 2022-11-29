@@ -66,11 +66,7 @@ def argmax(iterable):
     return (max_index, max_value)
 
 
-<<<<<<< HEAD
 def verifyDataGeneration(num_samples):
-=======
-def verifyAnnot(num_samples):
->>>>>>> 3bb84cb3f5471f32ac0ed54e433d97ea44592f87
 
     types = ["train", "val", "test"]
 
@@ -121,12 +117,8 @@ def verifyAnnot(num_samples):
                         Global.IMG_TEXT_LINE_TYPE)
                 count = 1
 
-<<<<<<< HEAD
         cv2.imwrite(os.path.join(Global.OUTPUT_DIR,
                     "region_proposals/", img_name + "_pp.png"), img)
-=======
-        cv2.imwrite(os.path.join(Global.OUTPUT_DIR, img_name + "_pp.png"), img)
->>>>>>> 3bb84cb3f5471f32ac0ed54e433d97ea44592f87
 
         img = cv2.imread(os.path.join(Global.FINETUNE_DATA_DIR,
                          selected_type, "JPEGImages", img_name + ".jpg"))
@@ -162,10 +154,6 @@ def verifyAnnot(num_samples):
                         Global.IMG_TEXT_LINE_TYPE)
                 count = 1
 
-<<<<<<< HEAD
         cv2.imwrite(os.path.join(Global.OUTPUT_DIR,
                     "region_proposals/", img_name + "_np.png"), img)
         print(f"Saved image {img_name} examples from {selected_type}")
-=======
-        cv2.imwrite(os.path.join(Global.OUTPUT_DIR, img_name + "_np.png"), img)
->>>>>>> 3bb84cb3f5471f32ac0ed54e433d97ea44592f87
