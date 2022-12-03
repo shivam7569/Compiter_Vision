@@ -13,15 +13,15 @@ class Global:
     CHECKPOINT_DIR = MODEL_PATH + "./checkpoints/"
 
     LABEL_TYPE = [i.lower() for i in
-        ["none", "aeroplane", "Bicycle", "bird", "Boat", "Bottle", "Bus", "Car",
-        "Cat", "Chair", "cow", "Diningtable", "Dog", "Horse", "Motorbike", "person",
-        "Pottedplant", "sheep", "Sofa", "Train", "TVmonitor"]
-    ]
-    
+                  ["none", "aeroplane", "Bicycle", "bird", "Boat", "Bottle", "Bus", "Car",
+                   "Cat", "Chair", "cow", "Diningtable", "Dog", "Horse", "Motorbike", "person",
+                   "Pottedplant", "sheep", "Sofa", "Train", "TVmonitor"]
+                  ]
+
     NUM_CLASSES = len(LABEL_TYPE)
 
     CLASS_LABELS = {}
-    
+
     for idx, x, in enumerate(LABEL_TYPE):
         CLASS_LABELS[x.lower()] = idx
 
@@ -38,6 +38,7 @@ class Global:
     FINETUNE_IMAGE_SIZE = (224, 224)
 
     GPU_ID = 6
-    TORCH_DEVICE = torch.device(f"cuda:{GPU_ID}" if torch.cuda.is_available() else "cpu")
+    TORCH_DEVICE = torch.device(
+        f"cuda:{GPU_ID}" if torch.cuda.is_available() else "cpu")
     ALEXNET_WEIGHTS = "/home/hqh2kor/handsOn/ObjectDetection/RCNN/models/alexnet_weights/alexnet.pth"
-    BEST_FINETUNE_MODEL = "/home/hqh2kor/handsOn/ObjectDetection/RCNN/models/checkpoints/best.pt"
+    BEST_FINETUNE_MODEL = "/home/hqh2kor/handsOn/ObjectDetection/RCNN/models/checkpoints/epoch_2_val_acc_0.7727.pt"

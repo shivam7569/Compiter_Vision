@@ -1,6 +1,6 @@
 from RCNN.utils.data.batch_sampler import FineTuneSampler
 from RCNN.utils.data.finetune_dataset import FineTuneDataset
-from RCNN.models.models import VGG19, AlexNet
+from RCNN.models.models import AlexNet
 from RCNN.globalParams import Global
 import os
 import copy
@@ -8,8 +8,6 @@ from time import sleep
 import torch
 import torch.nn as nn
 import albumentations as A
-from time import time
-import multiprocessing as mp
 from albumentations.pytorch import ToTensorV2
 import torch.optim as optim
 from torch.utils.data import DataLoader
@@ -30,8 +28,6 @@ class FineTune:
 
         data_loaders = {}
         data_sizes = {}
-        train_dataset = None
-        train_sampler = None
 
         for phase in ["train", "val"]:
             data_dir = os.path.join(Global.FINETUNE_DATA_DIR, phase)
@@ -50,46 +46,14 @@ class FineTune:
                 drop_last=True
             )
 
-            # if phase == "train":
-            #     train_dataset = dataset
-            #     train_sampler = data_sampler
-
             data_loaders[phase] = data_loader
             data_sizes[phase] = data_sampler.__len__()
 
         self.data_loaders = data_loaders
         self.data_sizes = data_sizes
 
-        # print("\nComputing optimal number of workers for train data loading...")
-        # self._get_optimal_workers(
-        #     {"dataset": train_dataset, "sampler": train_sampler}
-        # )
-
     def set_device(self):
         self.device = Global.TORCH_DEVICE
-
-    def _get_optimal_workers(self, data_dict):
-
-        # TODO
-
-        workers = range(16, mp.cpu_count(), 4)
-        for num_workers in tqdm(workers, unit="num_workers", total=len(workers)):
-            dataloader = DataLoader(
-                data_dict["dataset"],
-                batch_size=128,
-                sampler=data_dict["sampler"],
-                num_workers=num_workers,
-                pin_memory=True,
-                drop_last=True
-            )
-
-            start = time()
-            for _ in tqdm(range(3), unit="iterations", total=3):
-                for _, _ in tqdm(enumerate(dataloader), unit="batches", total=len(dataloader)):
-                    pass
-            end = time()
-            print("Finish with:{} second, num_workers={}".format(
-                end - start, num_workers))
 
     def load_model(self, model, path):
         checkpoint = torch.load(path)
@@ -154,26 +118,28 @@ class FineTune:
                         running_loss += step_loss
                         running_corrects += step_acc
 
-                        if phase == "train":
-                            batch_counter = batch_counter_train
-                        else:
-                            batch_counter = batch_counter_val
-
                         current_lr = self._get_lr(optimizer)
 
-                        if batch_counter % 5000 == 0:
-                            if phase == "train":
+                        if phase == "train":
+
+                            if batch_counter_train % 5000 == 0:
+
                                 self.tbWriter.add_scalar(f"a_train/Step Train Loss", round(
                                     step_loss, 3), batch_counter_train)
                                 self.tbWriter.add_scalar(f"a_train/Step Train Acc", round(
                                     step_acc.item(), 3), batch_counter_train)
+
+                            elif batch_counter_train % 500 == 0:
                                 self.tbWriter.add_scalar(
                                     f"a_train/lr", current_lr, batch_counter_train)
-                            else:
-                                self.tbWriter.add_scalar(f"b_val/Step Val Loss", round(
-                                    step_loss, 3), batch_counter_val)
-                                self.tbWriter.add_scalar(f"b_val/Step Val Acc", round(
-                                    step_acc.item(), 3), batch_counter_val)
+                                
+
+                        elif phase == "val" and batch_counter_val % 1000 == 0:
+
+                            self.tbWriter.add_scalar(f"b_val/Step Val Loss", round(
+                                step_loss, 3), batch_counter_val)
+                            self.tbWriter.add_scalar(f"b_val/Step Val Acc", round(
+                                step_acc.item(), 3), batch_counter_val)
 
                         if phase == "train":
                             batch_counter_train += 1
@@ -245,22 +211,19 @@ class FineTune:
 
 def performFineTuning(epochs=25, debug=False):
 
-    model = AlexNet(pretrained=True)
+    model = AlexNet(pretrained=False)
 
     transformation = A.Compose(
         [
-            A.AdvancedBlur(p=0.20),
-            A.CLAHE(p=0.20),
             A.ChannelShuffle(p=0.15),
-            A.FancyPCA(p=0.25),
             A.RandomBrightnessContrast(p=0.2),
             A.HueSaturationValue(p=0.2),
+            A.HorizontalFlip(p=0.5),
+            A.CLAHE(p=0.3),
             A.Sharpen(p=0.3),
-            A.Superpixels(p=0.15),
-            A.RGBShift(p=0.15),
             A.Resize(
-                height=Global.FINETUNE_IMAGE_SIZE[0], width=Global.FINETUNE_IMAGE_SIZE[0], always_apply=True),
-            A.Normalize(always_apply=True),
+                height=Global.FINETUNE_IMAGE_SIZE[0], width=Global.FINETUNE_IMAGE_SIZE[1], always_apply=True, p=1),
+            A.Normalize(always_apply=True, p=1),
             ToTensorV2()
         ]
     )
@@ -272,7 +235,7 @@ def performFineTuning(epochs=25, debug=False):
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.SGD(model.parameters(), lr=1e-2, momentum=0.9)
     lr_scheduler = optim.lr_scheduler.CyclicLR(
-        optimizer, base_lr=1e-5, max_lr=1e-2, step_size_up=150000, mode="exp_range")
+        optimizer, base_lr=1e-5, max_lr=1e-3, step_size_up=38707, mode="triangular2")
 
     fineTune.train(model, criterion, optimizer, lr_scheduler, epochs)
 
