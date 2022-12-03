@@ -7,7 +7,7 @@ from tqdm import tqdm
 from torch.utils.data import Dataset
 from tqdm import tqdm
 import torchvision.transforms as transforms
-from RCNN.globalParams import Global
+from RCNN.utils.globalParams import Global
 import warnings
 warnings.filterwarnings("error")
 

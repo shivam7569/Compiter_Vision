@@ -7,7 +7,7 @@ import torch
 import matplotlib.pyplot as plt
 import xml.etree.ElementTree as ET
 
-from RCNN.globalParams import Global
+from RCNN.utils.globalParams import Global
 
 
 def check_dir(data_dir):
@@ -157,3 +157,17 @@ def verifyDataGeneration(num_samples):
         cv2.imwrite(os.path.join(Global.OUTPUT_DIR,
                     "region_proposals/", img_name + "_np.png"), img)
         print(f"Saved image {img_name} examples from {selected_type}")
+
+
+def image_grid(train_images, preds):
+
+  figure = plt.figure(figsize=(10,10))
+  for i in range(25):
+
+    plt.subplot(5, 5, i + 1, title=Global.LABEL_TYPE[preds[i]])
+    plt.xticks([])
+    plt.yticks([])
+    plt.grid(False)
+    plt.imshow(train_images[i], cmap=plt.cm.binary)
+
+  return figure

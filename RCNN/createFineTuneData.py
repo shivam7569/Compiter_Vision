@@ -1,7 +1,7 @@
 import os
 import multiprocessing
 from multiprocessing import Pool
-from RCNN.globalParams import Global
+from RCNN.utils.globalParams import Global
 from RCNN.utils.data.finetune_data import process_data
 from RCNN.utils.util import check_dir
 

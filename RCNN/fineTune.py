@@ -1,7 +1,7 @@
 from RCNN.utils.data.batch_sampler import FineTuneSampler
 from RCNN.utils.data.finetune_dataset import FineTuneDataset
 from RCNN.models.models import AlexNet
-from RCNN.globalParams import Global
+from RCNN.utils.globalParams import Global
 import os
 import copy
 from time import sleep

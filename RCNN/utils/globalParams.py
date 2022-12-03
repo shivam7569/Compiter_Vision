@@ -41,4 +41,4 @@ class Global:
     TORCH_DEVICE = torch.device(
         f"cuda:{GPU_ID}" if torch.cuda.is_available() else "cpu")
     ALEXNET_WEIGHTS = "/home/hqh2kor/handsOn/ObjectDetection/RCNN/models/alexnet_weights/alexnet.pth"
-    BEST_FINETUNE_MODEL = "/home/hqh2kor/handsOn/ObjectDetection/RCNN/models/checkpoints/epoch_2_val_acc_0.7727.pt"
+    BEST_FINETUNE_MODEL = "/home/hqh2kor/handsOn/ObjectDetection/RCNN/models/checkpoints/epoch_3_val_acc_0.7828.pt"

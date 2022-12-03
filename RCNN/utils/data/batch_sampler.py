@@ -9,7 +9,7 @@ from albumentations.pytorch import ToTensorV2
 from torch.utils.data import Sampler
 from torch.utils.data import DataLoader
 import torchvision.transforms as transforms
-from RCNN.globalParams import Global
+from RCNN.utils.globalParams import Global
 
 from RCNN.utils.data.finetune_dataset import FineTuneDataset
 

@@ -2,7 +2,7 @@ import sys
 import cv2
 import numpy as np
 
-from RCNN.metrics import iou
+from RCNN.utils.metrics import iou
 from RCNN.utils.util import argmax
 
 
