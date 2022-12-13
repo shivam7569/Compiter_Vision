@@ -1,20 +1,16 @@
 import random
-from cv2 import randn
 import cv2
 import numpy as np
-import torch
-from tqdm import tqdm
 import albumentations as A
 from albumentations.pytorch import ToTensorV2
 from torch.utils.data import Sampler
 from torch.utils.data import DataLoader
-import torchvision.transforms as transforms
 from RCNN.utils.globalParams import Global
 
 from RCNN.utils.data.finetune_dataset import FineTuneDataset
 
 
-class FineTuneSampler(Sampler):
+class BatchSampler(Sampler):
 
     def __init__(self, num_positive, num_negative, batch_positive, batch_negative, shuffle):
 
@@ -76,7 +72,7 @@ def verifyDataLoader(num_samples):
 
         data_set = FineTuneDataset(
             root_dir, transform=transformation, mode=selected_type.split("/")[0], debug=True)
-        sampler = FineTuneSampler(data_set.get_positive_num(
+        sampler = BatchSampler(data_set.get_positive_num(
         ), data_set.get_negative_num(), 32, 96, shuffle=True)
         data_loader = DataLoader(
             data_set, batch_size=128, sampler=sampler, num_workers=56, drop_last=True)

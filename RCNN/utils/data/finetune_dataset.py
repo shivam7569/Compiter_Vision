@@ -20,7 +20,7 @@ class FineTuneDataset(Dataset):
         self.transform = transform
         self.root_dir = root_dir
 
-        if debug: samples = random.sample(os.listdir(os.path.join(root_dir, "JPEGImages")), 200)
+        if debug: samples = random.sample(os.listdir(os.path.join(root_dir, "JPEGImages")), 50)
         else: samples = os.listdir(os.path.join(root_dir, "JPEGImages"))
 
         positive_annot = [os.path.join(
@@ -162,7 +162,6 @@ class FineTuneDataset(Dataset):
         if self.transform: 
             transformed_proposal = self.transform(image=proposal)
             proposal = transformed_proposal["image"]
-            # proposal = self.transform(proposal)
         else: proposal = cv2.resize(proposal, Global.FINETUNE_IMAGE_SIZE)
 
         return proposal, target

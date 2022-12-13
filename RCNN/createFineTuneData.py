@@ -34,4 +34,4 @@ def createFineTuneData():
     pool = Pool(processes=cpu_cores, maxtasksperchild=100)
 
     _ = list(pool.imap_unordered(process_data,
-             args_iter, chunksize=num_tasks // 8))
+             args_iter, chunksize=num_tasks // cpu_cores))

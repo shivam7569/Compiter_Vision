@@ -1,5 +1,6 @@
 import json
 import os
+import random
 import shutil
 import cv2
 import time
@@ -23,7 +24,6 @@ def parse_annotation_jpeg(annotation_path, jpeg_path, ss):
 
     rects = ss.getAnchors()
     np.random.shuffle(rects)
-    rects = rects[:Global.NUM_PROPOSALS, :]
 
     bndboxes = parse_xml(annotation_path)
 
@@ -84,6 +84,9 @@ def parse_annotation_jpeg(annotation_path, jpeg_path, ss):
 
             }
             negative_list.append(entry)  # background
+
+    num_positives = len(positive_list)
+    if len(negative_list) > num_positives: negative_list = random.sample(negative_list, num_positives)
 
     return positive_list, negative_list
 
