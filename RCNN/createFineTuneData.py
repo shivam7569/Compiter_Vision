@@ -1,6 +1,8 @@
 import os
 import multiprocessing
 from multiprocessing import Pool
+import sys
+from pycocotools.coco import COCO
 from RCNN.utils.globalParams import Global
 from RCNN.utils.data.finetune_data import process_data
 from RCNN.utils.util import check_dir
@@ -11,22 +13,19 @@ from RCNN.utils.util import check_dir
 def createFineTuneData():
     check_dir(Global.FINETUNE_DATA_DIR)
 
-    train_samples_path = os.path.join(Global.DATA_DIR, "train/JPEGImages/")
-    test_samples_path = os.path.join(Global.DATA_DIR, "test/JPEGImages/")
-    val_samples_path = os.path.join(Global.DATA_DIR, "val/JPEGImages/")
+    train_annot_path = Global.DATA_DIR + "annotations/instances_train2017.json"
+    val_annot_path = Global.DATA_DIR + "annotations/instances_val2017.json"
 
-    train_samples = [s.split("/")[-1].split(".")[0]
-                     for s in os.listdir(train_samples_path)]
-    test_samples = [s.split("/")[-1].split(".")[0]
-                    for s in os.listdir(test_samples_path)]
-    val_samples = [s.split("/")[-1].split(".")[0]
-                   for s in os.listdir(val_samples_path)]
+    train_coco = COCO(train_annot_path)
+    val_coco = COCO(val_annot_path)
 
-    args_iter_train = [("train", s) for s in train_samples]
-    args_iter_test = [("test", s) for s in test_samples]
-    args_iter_val = [("val", s) for s in val_samples]
+    train_samples = train_coco.getImgIds()
+    val_samples = val_coco.getImgIds()
 
-    args_iter = args_iter_train + args_iter_test + args_iter_val
+    args_iter_train = [("train", train_coco, s) for s in train_samples]
+    args_iter_val = [("val", val_coco, s) for s in val_samples]
+
+    args_iter = args_iter_train + args_iter_val
     num_tasks = len(args_iter)
 
     multiprocessing.set_start_method("fork")
@@ -35,3 +34,4 @@ def createFineTuneData():
 
     _ = list(pool.imap_unordered(process_data,
              args_iter, chunksize=num_tasks // cpu_cores))
+             

@@ -10,35 +10,65 @@ from RCNN.utils.util import check_dir, parse_xml
 from RCNN.utils.computations import compute_IOUs, selectiveSearch
 
 
-def parse_annotation_jpeg(annotation_path, jpeg_path, ss):
+def parse_annotation_jpeg(coco, imgID, directory, ss):
     """ 
     Get positive and negative samples (note: ignore the label bounding box whose property difficult is True) 
     Positive sample: Candidate suggestion and labeled bounding box IoU is greater than or equal to 0.5 
     Negative sample: IoU is greater than 0 and less than 0.5. In order to further limit the number of negative samples, its size must be larger than 1/5 of the label box 
     """
 
-    image_name = jpeg_path.split("/")[-1].split(".")[0]
+    img_metadata = coco.loadImgs([imgID])
+    image_name = img_metadata[0]['file_name'].split(".")[0]
+    jpeg_path = os.path.join(Global.DATA_DIR, directory, image_name + ".jpg")
     img = cv2.imread(jpeg_path)
-    height, width, _ = img.shape
+    
     ss.loadAlgo(img)
 
     rects = ss.getAnchors()
     np.random.shuffle(rects)
+    rects = rects[:Global.NUM_PROPOSALS]
 
-    bndboxes = parse_xml(annotation_path)
+    annIds = coco.getAnnIds(imgIds=[imgID])
+    anns = coco.loadAnns(annIds)
+    bndboxes = []
+
+    for data in anns:
+        x1, y1, x2, y2 = int(data["bbox"][0]), int(data["bbox"][1]), int(
+            data["bbox"][0] + data["bbox"][2]), int(data["bbox"][1] + data["bbox"][3])
+        if (x2 - x1) > 16 and (y2 - y1) > 16:
+            bndboxes.append(
+                {
+                    "x1": x1,
+                    "y1": y1,
+                    "x2": x2,
+                    "y2": y2,
+                    "class_id": int(data["category_id"]),
+                    "class_name": Global.CLASS_LABELS[int(data["category_id"])]
+                }
+            )
+
+    if len(bndboxes) == 0:
+        return [], []
 
     maximum_bndbox_size = 0
     for bndbox in bndboxes:
-        x1, y1, x2, y2 = int(bndbox["x1"] * width), int(bndbox["y1"] * height), int(
-            bndbox["x2"] * width), int(bndbox["y2"] * height)
+        x1, y1, x2, y2 = bndbox["x1"], bndbox["y1"], bndbox["x2"], bndbox["y2"]
         area = (x2 - x1) * (y2 - y1)
 
         if area > maximum_bndbox_size:
             maximum_bndbox_size = area
 
-    iou_list = compute_IOUs(rects, bndboxes, width, height)
-    positive_list = []
-    negative_list = []
+    iou_list = compute_IOUs(rects, bndboxes)
+    positive_list = {
+        "image_name": None,
+        "proposal_coord": [],
+        "gts": None
+    }
+    negative_list = {
+        "image_name": None,
+        "proposal_coord": [],
+        "gts": None
+    }
 
     assert len(iou_list) == rects.shape[0]
 
@@ -50,91 +80,73 @@ def parse_annotation_jpeg(annotation_path, jpeg_path, ss):
 
         if iou_score >= 0.5:
 
-            entry = {
-                "image_name": image_name,
-                "proposal_coord": [str(xmin), str(ymin), str(xmax), str(ymax)],
-                "proposal_class": str(gt_details["class_id"]),
-                "gts": [
-                    [
-                        str(int(i["x1"] * width)),
-                        str(int(i["y1"] * height)),
-                        str(int(i["x2"] * width)),
-                        str(int(i["y2"] * height)),
-                        str(i["class_id"])
-                    ] for i in bndboxes
-                ]
-
-            }
-            positive_list.append(entry)
+            positive_list["proposal_coord"].append(
+                [str(xmin), str(ymin), str(xmax), str(
+                    ymax), str(gt_details["class_id"])]
+            )
 
         elif (0.0 < iou_score < 0.5) and (rect_size > maximum_bndbox_size / 5):
-            entry = {
-                "image_name": image_name,
-                "proposal_coord": [str(xmin), str(ymin), str(xmax), str(ymax)],
-                "proposal_class": "0",
-                "gts": [
-                    [
-                        str(int(i["x1"] * width)),
-                        str(int(i["y1"] * height)),
-                        str(int(i["x2"] * width)),
-                        str(int(i["y2"] * height)),
-                        str(i["class_id"])
-                    ] for i in bndboxes
-                ]
 
-            }
-            negative_list.append(entry)  # background
+            negative_list["proposal_coord"].append(
+                [str(xmin), str(ymin), str(xmax), str(ymax), "0"]
+            )
 
-    num_positives = len(positive_list)
-    if len(negative_list) > num_positives: negative_list = random.sample(negative_list, num_positives)
+    num_positives = len(positive_list["proposal_coord"])
+    if len(negative_list["proposal_coord"]) > num_positives:
+        negative_list["proposal_coord"] = random.sample(
+            negative_list["proposal_coord"], num_positives)
+
+    gts = [
+        [
+            str(i["x1"]),
+            str(i["y1"]),
+            str(i["x2"]),
+            str(i["y2"]),
+            str(i["class_id"])
+        ] for i in bndboxes
+    ]
+
+    positive_list["image_name"] = image_name
+    negative_list["image_name"] = image_name
+    positive_list["gts"] = gts
+    negative_list["gts"] = gts
 
     return positive_list, negative_list
 
 
 def process_data(args):
 
-    directory, sample_name = args
+    directory, coco, sample_id = args
     ss = selectiveSearch()
-
-    src_root_dir = os.path.join(Global.DATA_DIR, directory)
-    src_annotation_dir = os.path.join(src_root_dir, "Annotations")
-    src_jpeg_dir = os.path.join(src_root_dir, "JPEGImages")
-
-    assert len(os.listdir(src_annotation_dir)) == len(os.listdir(src_jpeg_dir))
 
     dst_root_dir = os.path.join(Global.FINETUNE_DATA_DIR, directory)
     dst_annotation_dir = os.path.join(dst_root_dir, "Annotations")
-    dst_jpeg_dir = os.path.join(dst_root_dir, "JPEGImages")
 
     check_dir(dst_root_dir)
     check_dir(dst_annotation_dir)
-    check_dir(dst_jpeg_dir)
 
     start_time = time.time()
 
-    src_annotation_path = os.path.join(
-        src_annotation_dir, sample_name + ".xml")
-    src_jpeg_path = os.path.join(src_jpeg_dir, sample_name + ".jpg")
-    dst_jpeg_path = os.path.join(dst_jpeg_dir, sample_name + ".jpg")
-
     positive_list, negative_list = parse_annotation_jpeg(
-        src_annotation_path, src_jpeg_path, ss)
+        coco, sample_id, directory, ss)
 
-    dst_positive_annot_path = os.path.join(
-        dst_annotation_dir, sample_name + "_1" + ".json")
-    dst_negative_annot_path = os.path.join(
-        dst_annotation_dir, sample_name + "_0" + ".json")
+    if len(positive_list) > 0 and len(negative_list) > 0:
 
-    shutil.copyfile(src_jpeg_path, dst_jpeg_path)
+        sample_name = positive_list["image_name"]
 
-    with open(dst_positive_annot_path, "w") as f:
-        json.dump(positive_list, f)
+        dst_positive_annot_path = os.path.join(
+            dst_annotation_dir, sample_name + "_1" + ".json")
+        dst_negative_annot_path = os.path.join(
+            dst_annotation_dir, sample_name + "_0" + ".json")
 
-    with open(dst_negative_annot_path, "w") as f:
-        json.dump(negative_list, f)
+        with open(dst_positive_annot_path, "w") as f:
+            json.dump(positive_list, f)
+
+        with open(dst_negative_annot_path, "w") as f:
+            json.dump(negative_list, f)
 
     end_time = time.time()
     time_taken = end_time - start_time
 
-    print("Parsed {}.png in {:.0f}m {:.0f}s".format(
-        sample_name, time_taken // 60, time_taken % 60))
+    print("Parsed {} in {:.0f}m {:.0f}s".format(
+        sample_id, time_taken // 60, time_taken % 60))

@@ -1,3 +1,6 @@
+import warnings
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+
 import json
 import os
 import random
@@ -68,17 +71,17 @@ def argmax(iterable):
 
 def verifyDataGeneration(num_samples):
 
-    types = ["train", "val", "test"]
+    types = ["train", "val"]
 
     for _ in range(num_samples):
         selected_type = random.choice(types)
 
         images = os.listdir(os.path.join(
-            Global.FINETUNE_DATA_DIR, selected_type, "JPEGImages"))
-        img_name = random.choice(images).split(".")[0]
+            Global.FINETUNE_DATA_DIR, selected_type, "Annotations"))
+        img_name = random.choice(images).split("_")[0]
 
-        img = cv2.imread(os.path.join(Global.FINETUNE_DATA_DIR,
-                         selected_type, "JPEGImages", img_name + ".jpg"))
+        img = cv2.imread(os.path.join(Global.DATA_DIR,
+                         selected_type, img_name + ".jpg"))
 
         with open(os.path.join(Global.FINETUNE_DATA_DIR, selected_type, "Annotations", img_name + "_1.json"), "r") as f:
             positive_proposals = json.load(f)
@@ -87,13 +90,13 @@ def verifyDataGeneration(num_samples):
             negative_proposals = json.load(f)
 
         count = 0
-        for pp in positive_proposals:
-            x1, y1, x2, y2 = [int(i) for i in pp["proposal_coord"]]
+        for pp in positive_proposals["proposal_coord"]:
+            x1, y1, x2, y2, class_id = [int(i) for i in pp]
             img = cv2.rectangle(img, (x1, y1), (x2, y2),
                                 Global.PROPOSAL_BBOX_COLOR, Global.PROPOSAL_BBOX_THICKNESS)
             img = cv2.putText(
                 img,
-                pp["proposal_class"],
+                str(class_id),
                 (x1, y1-10),
                 Global.IMG_TEXT_FONT,
                 Global.IMG_TEXT_FONT_SCALE,
@@ -101,7 +104,7 @@ def verifyDataGeneration(num_samples):
                 Global.IMG_TEXT_THICKNESS,
                 Global.IMG_TEXT_LINE_TYPE)
             if count == 0:
-                gts = pp["gts"]
+                gts = positive_proposals["gts"]
                 for gt in gts:
                     xmin, ymin, xmax, ymax, class_id = [int(i) for i in gt]
                     img = cv2.rectangle(
@@ -120,17 +123,17 @@ def verifyDataGeneration(num_samples):
         cv2.imwrite(os.path.join(Global.OUTPUT_DIR,
                     "region_proposals/", img_name + "_pp.png"), img)
 
-        img = cv2.imread(os.path.join(Global.FINETUNE_DATA_DIR,
-                         selected_type, "JPEGImages", img_name + ".jpg"))
+        img = cv2.imread(os.path.join(Global.DATA_DIR,
+                         selected_type, img_name + ".jpg"))
 
         count = 0
-        for np in negative_proposals:
-            x1, y1, x2, y2 = [int(i) for i in np["proposal_coord"]]
+        for np in negative_proposals["proposal_coord"]:
+            x1, y1, x2, y2, class_id = [int(i) for i in np]
             img = cv2.rectangle(img, (x1, y1), (x2, y2),
                                 Global.PROPOSAL_BBOX_COLOR, Global.PROPOSAL_BBOX_THICKNESS)
             img = cv2.putText(
                 img,
-                np["proposal_class"],
+                str(class_id),
                 (x1, y1-10),
                 Global.IMG_TEXT_FONT,
                 Global.IMG_TEXT_FONT_SCALE,
@@ -138,7 +141,7 @@ def verifyDataGeneration(num_samples):
                 Global.IMG_TEXT_THICKNESS,
                 Global.IMG_TEXT_LINE_TYPE)
             if count == 0:
-                gts = np["gts"]
+                gts = negative_proposals["gts"]
                 for gt in gts:
                     xmin, ymin, xmax, ymax, class_id = [int(i) for i in gt]
                     img = cv2.rectangle(
@@ -161,13 +164,13 @@ def verifyDataGeneration(num_samples):
 
 def image_grid(train_images, preds):
 
-  figure = plt.figure(figsize=(10,10))
-  for i in range(25):
+    figure = plt.figure(figsize=(10, 10))
+    for i in range(25):
 
-    plt.subplot(5, 5, i + 1, title=Global.LABEL_TYPE[preds[i]])
-    plt.xticks([])
-    plt.yticks([])
-    plt.grid(False)
-    plt.imshow(train_images[i], cmap=plt.cm.binary)
+        plt.subplot(5, 5, i + 1, title=Global.LABEL_TYPE[preds[i]])
+        plt.xticks([])
+        plt.yticks([])
+        plt.grid(False)
+        plt.imshow(train_images[i], cmap=plt.cm.binary)
 
-  return figure
+    return figure

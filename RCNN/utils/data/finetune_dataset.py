@@ -14,14 +14,18 @@ warnings.filterwarnings("error")
 
 class FineTuneDataset(Dataset):
 
-    def __init__(self, root_dir, transform=None, mode="train", debug=False):
+    def __init__(self, root_dir, transform=None, phase="train", debug=False):
         super().__init__()
 
         self.transform = transform
         self.root_dir = root_dir
+        self.phase = phase
 
-        if debug: samples = random.sample(os.listdir(os.path.join(root_dir, "JPEGImages")), 50)
-        else: samples = os.listdir(os.path.join(root_dir, "JPEGImages"))
+        samples = list(set([i.split(
+            "_")[0] + ".jpg" for i in os.listdir(os.path.join(root_dir, "Annotations"))]))
+
+        if debug:
+            samples = random.sample(samples, 200)
 
         positive_annot = [os.path.join(
             root_dir, "Annotations", i[:-4] + "_1" + ".json") for i in samples]
@@ -40,33 +44,21 @@ class FineTuneDataset(Dataset):
         self.negative_image_names = []
 
         print()
-        pbar = tqdm(positive_annot, desc=f"Loading Positive Annotations ({mode})", total=len(positive_annot))
+        pbar = tqdm(positive_annot, desc=f"Loading Positive Annotations ({phase})", total=len(
+            positive_annot))
         for annot_path in pbar:
             with open(annot_path, "r") as f:
                 annot_data = json.load(f)
 
-            rects = np.array(
-                [
-                    [
-                        int(i["proposal_coord"][0]),
-                        int(i["proposal_coord"][1]),
-                        int(i["proposal_coord"][2]),
-                        int(i["proposal_coord"][3])
-                    ] for i in annot_data
-                ]
-            )
+            data = np.array(annot_data["proposal_coord"], dtype=np.int32)
 
-            labels = np.array(
-                [
-                    [int(i["proposal_class"])] for i in annot_data
-                ]
-            )
+            if data.shape == (0,):
+                continue
 
-            img_names = np.array(
-                [
-                    [i["image_name"]] for i in annot_data
-                ]
-            )
+            rects = data[:, :-1]
+            labels = np.reshape(data[:, -1], newshape=(-1, 1))
+            img_names = np.array([[annot_data["image_name"]]
+                                 for _ in range(labels.shape[0])])
 
             if len(rects.shape) == 1:  # Covers the cases when there is no or only one proposal rectangle
                 # Confirms the case when there is only one proposal rectangle => shape === (4,)
@@ -85,35 +77,22 @@ class FineTuneDataset(Dataset):
                 self.positive_image_names.extend(img_names)
                 self.positive_sizes.append(len(rects))
 
-
-        pbar = tqdm(negative_annot, desc=f"Loading Negative Annotations ({mode})", total=len(negative_annot))
+        pbar = tqdm(negative_annot, desc=f"Loading Negative Annotations ({phase})", total=len(
+            negative_annot))
         for annot_path in pbar:
 
             with open(annot_path, "r") as f:
                 annot_data = json.load(f)
 
-            rects = np.array(
-                [
-                    [
-                        int(i["proposal_coord"][0]),
-                        int(i["proposal_coord"][1]),
-                        int(i["proposal_coord"][2]),
-                        int(i["proposal_coord"][3])
-                    ] for i in annot_data
-                ]
-            )
+            data = np.array(annot_data["proposal_coord"], dtype=np.int32)
 
-            labels = np.array(
-                [
-                    [int(i["proposal_class"])] for i in annot_data
-                ]
-            )
+            if data.shape == (0,):
+                continue
 
-            img_names = np.array(
-                [
-                    [i["image_name"]] for i in annot_data
-                ]
-            )
+            rects = data[:, :-1]
+            labels = np.reshape(data[:, -1], newshape=(-1, 1))
+            img_names = np.array([[annot_data["image_name"]]
+                                 for _ in range(labels.shape[0])])
 
             if len(rects.shape) == 1:
                 if rects.shape[0] == 4:
@@ -145,8 +124,9 @@ class FineTuneDataset(Dataset):
             target = self.positive_labels[index][0]
             img_name = self.positive_image_names[index][0]
 
-            image_path = os.path.join(self.root_dir, "JPEGImages", img_name + ".jpg")
-            img = cv2.imread(image_path, cv2.COLOR_BGR2RGB)
+            image_path = os.path.join(
+                Global.DATA_DIR, self.phase, img_name + ".jpg")
+            img = cv2.imread(image_path)
             proposal = img[ymin: ymax, xmin: xmax]
 
         else:
@@ -155,16 +135,18 @@ class FineTuneDataset(Dataset):
             target = self.negative_labels[index][0]
             img_name = self.negative_image_names[index][0]
 
-            image_path = os.path.join(self.root_dir, "JPEGImages", img_name + ".jpg")
-            img = cv2.imread(image_path, cv2.COLOR_BGR2RGB)
+            image_path = os.path.join(
+                Global.DATA_DIR, self.phase, img_name + ".jpg")
+            img = cv2.imread(image_path)
             proposal = img[ymin: ymax, xmin: xmax]
 
-        if self.transform: 
+        if self.transform:
             transformed_proposal = self.transform(image=proposal)
             proposal = transformed_proposal["image"]
-        else: proposal = cv2.resize(proposal, Global.FINETUNE_IMAGE_SIZE)
+        else:
+            proposal = cv2.resize(proposal, Global.FINETUNE_IMAGE_SIZE)
 
-        return proposal, target
+        return proposal, Global.MAPPED_CLASS_LABELS[target]
 
     def __len__(self):
         return self.total_positive_num + self.total_negative_num
